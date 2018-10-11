@@ -91,6 +91,53 @@ def nodeTraversePrint(cursor, depth = 0): # Node traverse for printing
 def jsonFileLoad(path):
     with open(path) as f:
         return json.load(f)
+    
+# Modified from https://eli.thegreenplace.net/2011/07/03/parsing-c-in-python-with-clang/
+def find_typerefs(node, typename):
+    """ Find all references to the type named 'typename'
+    """
+    if node.kind.is_reference():
+        ref_node = clang.cindex.Cursor_ref(node)
+        if ref_node.spelling == typename:
+            print 'Found %s [line=%s, col=%s]' % (
+                typename, node.location.line, node.location.column)
+
+    # Recurse for children of this node,
+    # skipping all nodes not beginning with "a"
+    for c in node.get_children():
+        if c.spelling.endswith ("/stdio.h"):
+            print "Skipping stdio.h"
+            return 1
+ 
+# Another possible function; this one works by excluding the nodes from specific fice while visiting the AST. The idea is to first test in the visit to skip the file as early as it is being hit and avoid its subnodes all together
+def func_visitor(self, node, parent, userdata):
+    
+    if node.location.file.endswith("/stdio.h"):
+        print "Skip stdio.h"
+        return 1
+    
+    if node.kind == clang.cindex.CursorKind.FUNCTION_DECL: #https://clang.llvm.org/doxygen/classclang_1_1FunctionDecl.html
+        self.func_defn.append(clang.cindex.Cursor_displayname(node))
+        self.func_defn_line_no.append(node.location.line)
+        self.func_defn_col_no.append(node.location.column)
+# https://github.com/libigl/libigl/blob/master/python/scripts/parser.py
+
+    print 'Found %s [line=%s, col=%s]' % (
+        clang.cindex.Cursor_displayname(node),
+        node.location.line,
+        node.location.column)
+
+    # Continue visiting recursively
+    return 2
+
+tu = index.parse(self.filename)
+clang.cindex.Cursor_visit(
+    tu.cursor,
+    clang.cindex.Cursor_visit_callback(self.func_visitor),
+    None)
+
+# End of my function
+
 
 if __name__ == "__main__":
     before_file_path = '.before.c'
